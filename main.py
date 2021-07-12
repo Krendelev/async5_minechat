@@ -37,15 +37,16 @@ async def send_messages(writer, queues):
             queues["watchdog"].put_nowait("Message sent")
 
 
-async def read_messages(reader, writer, queues, blacklist):
+async def read_messages(reader, writer, queues, blacklist=None):
     with closing(writer):
         while True:
             message = await reader.readuntil()
             text = message.decode()
             name = text.split(":")[0]
-            if name not in blacklist:
-                queues["messages"].put_nowait(text)
-                queues["transcript"].put_nowait(text)
+            if blacklist and name in blacklist:
+                continue
+            queues["messages"].put_nowait(text)
+            queues["transcript"].put_nowait(text)
             queues["watchdog"].put_nowait("New message in chat")
 
 
