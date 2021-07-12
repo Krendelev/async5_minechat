@@ -37,13 +37,15 @@ async def send_messages(writer, queues):
             queues["watchdog"].put_nowait("Message sent")
 
 
-async def read_messages(reader, writer, queues):
+async def read_messages(reader, writer, queues, blacklist):
     with closing(writer):
         while True:
             message = await reader.readuntil()
             text = message.decode()
-            queues["messages"].put_nowait(text)
-            queues["transcript"].put_nowait(text)
+            name = text.split(":")[0]
+            if name not in blacklist:
+                queues["messages"].put_nowait(text)
+                queues["transcript"].put_nowait(text)
             queues["watchdog"].put_nowait("New message in chat")
 
 
@@ -104,7 +106,7 @@ async def handle_connection(settings, queues):
         raise gui.TkAppClosed
 
     async with anyio.create_task_group() as tg:
-        tg.start_soon(read_messages, rcv_reader, rcv_writer, queues)
+        tg.start_soon(read_messages, rcv_reader, rcv_writer, queues, settings.blacklist)
         tg.start_soon(send_messages, send_writer, queues)
         tg.start_soon(ping_server, send_reader, send_writer, queues)
         tg.start_soon(watch_for_connection, queues)

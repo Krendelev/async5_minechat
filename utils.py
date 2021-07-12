@@ -12,6 +12,9 @@ def get_argparser():
     parser.add_argument("-i", "--inport", type=int, help="port to read from")
     parser.add_argument("-o", "--outport", type=int, help="port to write to")
     parser.add_argument("--history", help="file to save transcript to")
+    parser.add_argument(
+        "--blacklist", action="append", help="list of users to filter out"
+    )
     return parser
 
 
