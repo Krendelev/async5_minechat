@@ -56,9 +56,9 @@ async def update_conversation_history(panel, messages_queue):
             panel.insert("end", "\n")
         panel.insert("end", msg)
         panel["state"] = "disabled"
-        scrollbar_pos = panel.vbar.get()
-        if scrollbar_pos[1] == 1.0:
-            panel.yview(tk.END)
+        if panel.vbar.get()[1] < 1.0:
+            continue
+        panel.yview(tk.END)
 
 
 async def update_status_panel(status_labels, status_updates_queue):
@@ -81,24 +81,39 @@ async def update_status_panel(status_labels, status_updates_queue):
 
 
 def create_status_panel(root_frame):
-    status_frame = tk.Frame(root_frame)
-    status_frame.pack(side="bottom", fill=tk.X)
+    status_frame = tk.Frame(root_frame, bg="whitesmoke")
+    status_frame.pack(side="bottom", padx=12, pady=(2, 10), fill=tk.X)
 
     connections_frame = tk.Frame(status_frame)
     connections_frame.pack(side="left")
 
     nickname_label = tk.Label(
-        connections_frame, height=1, fg="grey", font="arial 10", anchor="w"
+        connections_frame,
+        height=1,
+        fg="dimgray",
+        bg="whitesmoke",
+        font="arial 11",
+        anchor="w",
     )
     nickname_label.pack(side="top", fill=tk.X)
 
     status_read_label = tk.Label(
-        connections_frame, height=1, fg="grey", font="arial 10", anchor="w"
+        connections_frame,
+        height=1,
+        fg="dimgray",
+        bg="whitesmoke",
+        font="arial 11",
+        anchor="w",
     )
     status_read_label.pack(side="top", fill=tk.X)
 
     status_write_label = tk.Label(
-        connections_frame, height=1, fg="grey", font="arial 10", anchor="w"
+        connections_frame,
+        height=1,
+        fg="dimgray",
+        bg="whitesmoke",
+        font="arial 11",
+        anchor="w",
     )
     status_write_label.pack(side="top", fill=tk.X)
 
@@ -110,17 +125,17 @@ async def draw(messages_queue, sending_queue, status_updates_queue):
 
     root.title("Чат Майнкрафтера")
 
-    root_frame = tk.Frame()
+    root_frame = tk.Frame(bg="whitesmoke")
     root_frame.pack(fill="both", expand=True)
 
     status_labels = create_status_panel(root_frame)
 
-    input_frame = tk.Frame(root_frame)
+    input_frame = tk.Frame(root_frame, bg="whitesmoke")
     input_frame.pack(side="bottom", fill=tk.X)
 
     input_field = tk.Entry(input_frame)
-    input_field.pack(side="left", fill=tk.X, expand=True)
-
+    input_field.pack(side="left", padx=(12, 2), pady=6, fill=tk.X, expand=True)
+    input_field.focus()
     input_field.bind(
         "<Return>", lambda event: process_new_message(input_field, sending_queue)
     )
@@ -128,10 +143,12 @@ async def draw(messages_queue, sending_queue, status_updates_queue):
     send_button = tk.Button(input_frame)
     send_button["text"] = "Отправить"
     send_button["command"] = lambda: process_new_message(input_field, sending_queue)
-    send_button.pack(side="left")
+    send_button.pack(side="left", ipadx=10, ipady=3, padx=(0, 12))
 
-    conversation_panel = ScrolledText(root_frame, wrap="none")
-    conversation_panel.pack(side="top", fill="both", expand=True)
+    conversation_panel = ScrolledText(
+        root_frame, borderwidth=6, relief=tk.FLAT, font="arial 14", wrap=tk.WORD
+    )
+    conversation_panel.pack(side="top", padx=(12, 2), pady=6, fill="both", expand=True)
 
     await asyncio.gather(
         update_tk(root_frame),
