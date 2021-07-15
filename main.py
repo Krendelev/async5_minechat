@@ -85,7 +85,7 @@ async def watch_for_connection(queues, timeout=2):
             raise ConnectionError
 
 
-@reconnect((ConnectionError, OSError), retries=20)
+@reconnect(ConnectionError, OSError, retries=20)
 async def handle_connection(settings, queues):
     queues["status"].put_nowait(gui.ReadConnectionStateChanged.INITIATED)
     queues["status"].put_nowait(gui.SendingConnectionStateChanged.INITIATED)

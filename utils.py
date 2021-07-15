@@ -18,14 +18,14 @@ def get_argparser():
     return parser
 
 
-def reconnect(exception, retries=10, delay=1, backoff=1.2):
+def reconnect(*exceptions, retries=10, delay=1, backoff=1.2):
     def wrap(func):
         async def wrapped(*args):
             _retries, _delay = retries, delay
             while _retries > 0:
                 try:
                     return await func(*args)
-                except exception:
+                except exceptions:
                     await asyncio.sleep(_delay)
                     _retries -= 1
                     _delay *= backoff
