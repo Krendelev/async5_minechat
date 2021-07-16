@@ -52,6 +52,7 @@ async def authorize(reader, writer, token, queues):
     await reader.readuntil()
     queues["watchdog"].put_nowait("Prompt before auth")
     writer.write(f"{token}\n".encode())
+    await writer.drain()
     response = await reader.readuntil()
     response_content = json.loads(response)
     if not response_content:
