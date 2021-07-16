@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-from contextlib import closing, suppress
+from contextlib import suppress
 from tkinter import messagebox
 
 import anyio
@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 import gui
 from errors import InvalidToken
-from utils import get_argparser, reconnect
+from utils import close_and_wait, get_argparser, reconnect
 
 
 async def load_messages(filepath, queues):
@@ -28,26 +28,24 @@ async def save_messages(filepath, queues):
 
 
 async def send_messages(writer, queues):
-    with closing(writer):
-        while True:
-            message = await queues["sending"].get()
-            writer.write(f"{message}\n\n".encode())
-            queues["sending"].task_done()
-            await writer.drain()
-            queues["watchdog"].put_nowait("Message sent")
+    while True:
+        message = await queues["sending"].get()
+        writer.write(f"{message}\n\n".encode())
+        queues["sending"].task_done()
+        await writer.drain()
+        queues["watchdog"].put_nowait("Message sent")
 
 
-async def read_messages(reader, writer, queues, blacklist=None):
-    with closing(writer):
-        while True:
-            message = await reader.readuntil()
-            text = message.decode()
-            name = text.split(":")[0]
-            if blacklist and name in blacklist:
-                continue
-            queues["messages"].put_nowait(text)
-            queues["transcript"].put_nowait(text)
-            queues["watchdog"].put_nowait("New message in chat")
+async def read_messages(reader, queues, blacklist=None):
+    while True:
+        message = await reader.readuntil()
+        text = message.decode()
+        name = text.split(":")[0]
+        if blacklist and name in blacklist:
+            continue
+        queues["messages"].put_nowait(text)
+        queues["transcript"].put_nowait(text)
+        queues["watchdog"].put_nowait("New message in chat")
 
 
 async def authorize(reader, writer, token, queues):
@@ -65,12 +63,11 @@ async def authorize(reader, writer, token, queues):
 
 
 async def ping_server(reader, writer, queues, delay=1):
-    with closing(writer):
-        while True:
-            writer.write(b"\n")
-            await reader.readuntil()
-            queues["watchdog"].put_nowait("Connection alive")
-            await asyncio.sleep(delay)
+    while True:
+        writer.write(b"\n")
+        await reader.readuntil()
+        queues["watchdog"].put_nowait("Connection alive")
+        await asyncio.sleep(delay)
 
 
 async def watch_for_connection(queues, timeout=2):
@@ -106,11 +103,12 @@ async def handle_connection(settings, queues):
         messagebox.showerror("Ошибка", err)
         raise gui.TkAppClosed
 
-    async with anyio.create_task_group() as tg:
-        tg.start_soon(read_messages, rcv_reader, rcv_writer, queues, settings.blacklist)
-        tg.start_soon(send_messages, send_writer, queues)
-        tg.start_soon(ping_server, send_reader, send_writer, queues)
-        tg.start_soon(watch_for_connection, queues)
+    async with close_and_wait(rcv_writer), close_and_wait(send_writer):
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(read_messages, rcv_reader, queues, settings.blacklist)
+            tg.start_soon(send_messages, send_writer, queues)
+            tg.start_soon(ping_server, send_reader, send_writer, queues)
+            tg.start_soon(watch_for_connection, queues)
 
 
 async def main():

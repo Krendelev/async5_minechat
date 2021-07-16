@@ -1,9 +1,22 @@
 import asyncio
+from contextlib import AbstractAsyncContextManager
 from tkinter import messagebox
 
 import configargparse
 
 import gui
+
+# modified from https://github.com/python/cpython/blob/main/Lib/contextlib.py
+class close_and_wait(AbstractAsyncContextManager):
+    def __init__(self, thing):
+        self.thing = thing
+
+    async def __aenter__(self):
+        return self.thing
+
+    async def __aexit__(self, *exc_info):
+        self.thing.close()
+        await self.thing.wait_closed()
 
 
 def get_argparser():

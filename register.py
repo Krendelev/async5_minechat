@@ -13,7 +13,7 @@ def register(settings, username):
     if not username:
         messagebox.showerror("Ошибка", "Введите ваш никнейм")
         return
-        
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
             sock.connect((settings.host, settings.outport))
@@ -35,7 +35,7 @@ def register(settings, username):
     messagebox.showinfo(
         "Пользователь зарегистрирован", f"Добро пожаловать {creds['nickname']}!"
     )
-    print(creds['account_hash'])
+    print(creds["account_hash"])
     exit()
 
 
@@ -74,9 +74,6 @@ if __name__ == "__main__":
     load_dotenv()
     argparser = get_argparser()
     settings = argparser.parse_args()
-    try:
-        settings.token = os.environ["TOKEN"]
-    except KeyError:
-        settings.token = None
+    settings.token = os.getenv("TOKEN", None)
 
     draw(settings)
