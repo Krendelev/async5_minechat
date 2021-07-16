@@ -65,6 +65,7 @@ async def authorize(reader, writer, token, queues):
 async def ping_server(reader, writer, queues, delay=1):
     while True:
         writer.write(b"\n")
+        await writer.drain()
         await reader.readuntil()
         queues["watchdog"].put_nowait("Connection alive")
         await asyncio.sleep(delay)
@@ -72,17 +73,12 @@ async def ping_server(reader, writer, queues, delay=1):
 
 async def watch_for_connection(queues, timeout=2):
     while True:
-        async with anyio.move_on_after(timeout) as scope:
+        async with anyio.fail_after(timeout):
             await queues["watchdog"].get()
             queues["watchdog"].task_done()
 
-        if scope.cancel_called:
-            queues["status"].put_nowait(gui.ReadConnectionStateChanged.CLOSED)
-            queues["status"].put_nowait(gui.SendingConnectionStateChanged.CLOSED)
-            raise ConnectionError
 
-
-@reconnect(ConnectionError, OSError, retries=20)
+@reconnect(TimeoutError, OSError, retries=20)
 async def handle_connection(settings, queues):
     queues["status"].put_nowait(gui.ReadConnectionStateChanged.INITIATED)
     queues["status"].put_nowait(gui.SendingConnectionStateChanged.INITIATED)
@@ -103,12 +99,16 @@ async def handle_connection(settings, queues):
         messagebox.showerror("Ошибка", err)
         raise gui.TkAppClosed
 
-    async with close_and_wait(rcv_writer), close_and_wait(send_writer):
-        async with anyio.create_task_group() as tg:
-            tg.start_soon(read_messages, rcv_reader, queues, settings.blacklist)
-            tg.start_soon(send_messages, send_writer, queues)
-            tg.start_soon(ping_server, send_reader, send_writer, queues)
-            tg.start_soon(watch_for_connection, queues)
+    try:
+        async with close_and_wait(rcv_writer), close_and_wait(send_writer):
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(read_messages, rcv_reader, queues, settings.blacklist)
+                tg.start_soon(send_messages, send_writer, queues)
+                tg.start_soon(ping_server, send_reader, send_writer, queues)
+                tg.start_soon(watch_for_connection, queues)
+    finally:
+        queues["status"].put_nowait(gui.ReadConnectionStateChanged.CLOSED)
+        queues["status"].put_nowait(gui.SendingConnectionStateChanged.CLOSED)
 
 
 async def main():
